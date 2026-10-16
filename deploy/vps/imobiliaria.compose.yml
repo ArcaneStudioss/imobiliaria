@@ -1,0 +1,110 @@
+# imobiliaria.arcanestudios.io (VPS Hostinger, Traefik + Cloudflare). Projeto Docker "imobiliaria".
+# Fonte: deploy/vps/imobiliaria.compose.yml no repositório ArcaneStudioss/imobiliaria.
+#
+# Um container só (node:22-alpine, usuário 1000) que:
+#   1. a cada 90 s olha o último commit da main (repositório público, sem token);
+#   2. commit novo: baixa, roda "npm test" e, se falhar, NADA muda no ar;
+#   3. tira uma cópia dos dados (volume imobiliaria_copias, guarda as 5 últimas);
+#   4. troca a versão (pasta releases/<sha>), reinicia o servidor e confere /saude;
+#      se a nova versão não subir, volta para a anterior sozinho.
+# Dados (banco, fotos e backups diários criptografados) ficam no volume imobiliaria_dados.
+services:
+  permissoes:
+    image: alpine:3.20
+    command: ["sh", "-c", "chown -R 1000:1000 /app /data /copias"]
+    volumes: [app:/app, dados:/data, copias:/copias]
+
+  site:
+    image: node:22-alpine
+    restart: unless-stopped
+    depends_on:
+      permissoes: { condition: service_completed_successfully }
+    user: "1000:1000"
+    mem_limit: 512m
+    logging: { driver: json-file, options: { max-size: 10m, max-file: "3" } }
+    environment:
+      REPO: ArcaneStudioss/imobiliaria
+      BRANCH: main
+      PORT: "8080"
+      DATA_DIR: /data
+      SITE_URL: https://imobiliaria.arcanestudios.io
+      TZ: America/Sao_Paulo
+      NODE_NO_WARNINGS: "1"
+      # cópia do backup fora do servidor e aviso de leads (definir no env do projeto, nunca no git)
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+      BACKUP_S3_CHAVE_ID: ${BACKUP_S3_CHAVE_ID:-}
+      BACKUP_S3_SEGREDO: ${BACKUP_S3_SEGREDO:-}
+      BACKUP_S3_PREFIXO: ${BACKUP_S3_PREFIXO:-imobiliaria/}
+      LEADS_WEBHOOK_URL: ${LEADS_WEBHOOK_URL:-}
+      LEADS_WEBHOOK_SEGREDO: ${LEADS_WEBHOOK_SEGREDO:-}
+    volumes: [app:/app, dados:/data, copias:/copias]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- -T 3 http://127.0.0.1:8080/saude >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.arc-imob.rule=Host(`imobiliaria.arcanestudios.io`)
+      - traefik.http.routers.arc-imob.entrypoints=websecure
+      - traefik.http.routers.arc-imob.tls.certresolver=letsencrypt
+      - traefik.http.services.arc-imob.loadbalancer.server.port=8080
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -u
+        log() { echo "$$(date -u +%FT%TZ) [deploy] $$*"; }
+        mkdir -p /app/releases
+        PID=""
+        iniciar() { (cd /app/current && exec node server.js) & PID=$$!; }
+        parar() { if [ -n "$$PID" ]; then kill -TERM "$$PID" 2>/dev/null; wait "$$PID" 2>/dev/null; fi; PID=""; }
+        saudavel() { wget -qO- -T 3 http://127.0.0.1:8080/saude >/dev/null 2>&1; }
+        ultimo() { node -e "fetch('https://api.github.com/repos/$$REPO/commits/$$BRANCH',{headers:{'User-Agent':'imobiliaria-deploy','Accept':'application/vnd.github+json'},signal:AbortSignal.timeout(15000)}).then(r=>r.json()).then(j=>console.log(/^[0-9a-f]{40}$$/.test(j.sha||'')?j.sha:'')).catch(()=>console.log(''))"; }
+        baixar() { node -e "fetch('https://codeload.github.com/$$REPO/tar.gz/'+process.argv[1],{signal:AbortSignal.timeout(120000)}).then(async r=>{if(!r.ok)process.exit(1);require('fs').writeFileSync('/tmp/src.tgz',Buffer.from(await r.arrayBuffer()))}).catch(()=>process.exit(1))" "$$1"; }
+
+        publicar() {
+          sha=$$1; dir=/app/releases/$$sha
+          log "commit novo $$sha: baixando"
+          rm -rf "$$dir.tmp"; mkdir -p "$$dir.tmp"
+          baixar "$$sha" && tar xzf /tmp/src.tgz --strip-components=1 -C "$$dir.tmp" && test -f "$$dir.tmp/server.js" || { log "ERRO: não consegui baixar o código"; rm -rf "$$dir.tmp"; return 1; }
+          log "rodando os testes"
+          if ! (cd "$$dir.tmp" && HOME=/tmp npm test > /tmp/testes.log 2>&1); then tail -30 /tmp/testes.log; log "TESTES FALHARAM: nada mudou no ar"; rm -rf "$$dir.tmp"; return 1; fi
+          grep -E '^# (pass|fail)' /tmp/testes.log | tr '\n' ' '; echo
+          rm -rf "$$dir.tmp/tests" "$$dir.tmp/deploy" "$$dir"; mv "$$dir.tmp" "$$dir"
+          if [ -f /data/site.db ]; then
+            (cd /data && tar czf "/copias/antes-$$sha.tgz" $$(ls -d site.db* uploads 2>/dev/null)) || { log "ERRO: sem cópia dos dados, abortado"; return 1; }
+            ls -1t /copias/antes-*.tgz | tail -n +6 | xargs -r rm -f
+          fi
+          anterior=$$(cat /app/no-ar 2>/dev/null || true)
+          ln -sfn "releases/$$sha" /app/current
+          parar; iniciar
+          n=0; while [ $$n -lt 40 ] && ! saudavel; do n=$$((n+1)); sleep 1; done
+          if ! saudavel; then
+            log "ATENÇÃO: a versão nova não respondeu; voltando para a anterior"
+            if [ -n "$$anterior" ] && [ -d "/app/releases/$$anterior" ]; then ln -sfn "releases/$$anterior" /app/current; parar; iniciar; fi
+            return 1
+          fi
+          echo "$$sha" > /app/no-ar
+          ls -1t /app/releases | grep -v "^$$sha$$" | tail -n +3 | while read -r v; do rm -rf "/app/releases/$$v"; done
+          log "NO AR: $$sha"
+        }
+
+        trap 'parar; exit 0' TERM INT
+        [ -L /app/current ] && iniciar
+        falhou=""
+        while true; do
+          sha=$$(ultimo)
+          if [ -n "$$sha" ] && [ "$$sha" != "$$(cat /app/no-ar 2>/dev/null || true)" ] && [ "$$sha" != "$$falhou" ]; then
+            publicar "$$sha" && falhou="" || falhou=$$sha
+          fi
+          if [ -L /app/current ] && ! kill -0 "$${PID:-0}" 2>/dev/null; then log "servidor parado; iniciando"; iniciar; fi
+          sleep 90 & wait $$!
+        done
+
+volumes:
+  app: { name: imobiliaria_app }
+  dados: { name: imobiliaria_dados }
+  copias: { name: imobiliaria_copias }

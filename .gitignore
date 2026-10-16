@@ -1,0 +1,7 @@
+dados/
+node_modules/
+*.log
+.env
+.env.*
+*.sitebak
+restaurado/
