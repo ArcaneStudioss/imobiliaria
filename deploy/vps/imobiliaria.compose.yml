@@ -62,7 +62,8 @@ services:
         iniciar() { (cd /app/current && exec node server.js) & PID=$$!; }
         parar() { if [ -n "$$PID" ]; then kill -TERM "$$PID" 2>/dev/null; wait "$$PID" 2>/dev/null; fi; PID=""; }
         saudavel() { wget -qO- -T 3 http://127.0.0.1:8080/saude >/dev/null 2>&1; }
-        ultimo() { node -e "fetch('https://api.github.com/repos/$$REPO/commits/$$BRANCH',{headers:{'User-Agent':'imobiliaria-deploy','Accept':'application/vnd.github+json'},signal:AbortSignal.timeout(15000)}).then(r=>r.json()).then(j=>console.log(/^[0-9a-f]{40}$$/.test(j.sha||'')?j.sha:'')).catch(()=>console.log(''))"; }
+        # último commit da branch pelo protocolo git (https://github.com/<repo>.git/info/refs): não tem o limite de 60/h da API sem token
+        ultimo() { node -e "fetch('https://github.com/'+process.argv[1]+'.git/info/refs?service=git-upload-pack',{headers:{'User-Agent':'git/2.43.0'},signal:AbortSignal.timeout(15000)}).then(r=>r.text()).then(t=>{const b=' refs/heads/'+process.argv[2];let i=t.indexOf(b+'\\n');if(i<0)i=t.indexOf(b+'\\0');const s=i>=40?t.slice(i-40,i):'';console.log(/^[0-9a-f]{40}\$/.test(s)?s:'')}).catch(()=>console.log(''))" "$$REPO" "$$BRANCH"; }
         baixar() { node -e "fetch('https://codeload.github.com/$$REPO/tar.gz/'+process.argv[1],{signal:AbortSignal.timeout(120000)}).then(async r=>{if(!r.ok)process.exit(1);require('fs').writeFileSync('/tmp/src.tgz',Buffer.from(await r.arrayBuffer()))}).catch(()=>process.exit(1))" "$$1"; }
 
         publicar() {
@@ -94,9 +95,10 @@ services:
 
         trap 'parar; exit 0' TERM INT
         [ -L /app/current ] && iniciar
-        falhou=""
+        falhou=""; semresposta=0
         while true; do
           sha=$$(ultimo)
+          if [ -z "$$sha" ]; then semresposta=$$((semresposta+1)); [ $$((semresposta % 40)) -eq 1 ] && log "AVISO: não consegui consultar o GitHub ($$semresposta tentativas seguidas)"; else semresposta=0; fi
           if [ -n "$$sha" ] && [ "$$sha" != "$$(cat /app/no-ar 2>/dev/null || true)" ] && [ "$$sha" != "$$falhou" ]; then
             publicar "$$sha" && falhou="" || falhou=$$sha
           fi
