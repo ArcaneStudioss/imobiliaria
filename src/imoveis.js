@@ -24,8 +24,7 @@ const PADRAO = {
   hero_2: 'Bem-vindo de volta pra casa.',
   hero_3: 'Aqui, os dias passam sem pressa.',
   hero_img_1: '/img/hero/cena1.webp',
-  hero_img_2: '/img/hero/cena2.webp',
-  hero_img_3: '/img/hero/cena3.webp',
+  hero_foco: '60,68',
   sobre_titulo: 'Imóvel bom é aquele que já parece seu na primeira visita.',
   sobre_texto: 'Somos uma imobiliária de cidade pequena, do jeito que tem que ser: a gente conhece as ruas, os vizinhos e a história de cada casa. Ajudamos você a comprar, vender ou alugar com calma, papel em dia e conversa franca do começo ao fim.',
   ga4: '',
@@ -55,6 +54,7 @@ function criarConfig(db) {
         if (k === 'pixel_meta' && v && !/^\d{6,20}$/.test(v)) throw Object.assign(new Error('O Pixel da Meta é só números.'), { status: 400, campo: 'pixel_meta' });
         if (k === 'verificacao_google' && v) { const m = /content="([^"]+)"/.exec(v); v = (m ? m[1] : v).replace(/[^\w-]/g, '').slice(0, 100); }
         if ((k === 'instagram' || k === 'facebook') && v) v = v.replace(/^@/, '').replace(/^https?:\/\/(www\.)?(instagram|facebook)\.com\//, '').replace(/[^\w.-]/g, '');
+        if (k === 'hero_foco') { const m = /^(\d{1,3}),(\d{1,3})$/.exec(v); if (!m) continue; v = `${Math.min(85, Math.max(15, +m[1]))},${Math.min(85, Math.max(15, +m[2]))}`; }
         if (/^hero_img_|^corretor_foto$/.test(k) && v && !/^\/(img\/hero\/[\w.-]+|uploads\/[\w.-]+)$/.test(v)) continue;
         ins.run(k, v);
       }

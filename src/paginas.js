@@ -226,14 +226,20 @@ function formContato({ origem = 'contato', imovel = null, titulo = '', botao = '
 
 /* ---------- páginas ---------- */
 function home({ cfg, v, base, op, destaques, contagens }) {
-  const cenas = [1, 2, 3].map(n => ({ img: cfg['hero_img_' + n], frase: cfg['hero_' + n] }));
-  const rotulos = ['Chegada', 'Sala', 'Varanda'];
-  const hero = `<section class="hero" data-hero aria-label="Apresentação">
+  // uma casa só: a câmera entra pela porta de vidro. O ponto de entrada (em % da foto) vem do painel.
+  const [fx0, fy0] = String(cfg.hero_foco || '60,68').split(',').map(Number);
+  const foco = `${Math.min(85, Math.max(15, fx0 || 60))},${Math.min(85, Math.max(15, fy0 || 68))}`;
+  const frases = [cfg.hero_1, cfg.hero_2, cfg.hero_3];
+  const rotulos = ['Fachada', 'Entrada', 'Dentro'];
+  const imgHero = cfg.hero_img_1;
+  const hero = `<section class="hero" data-hero data-foco="${foco}" aria-label="Apresentação">
     <div class="hero-palco">
-      ${cenas.map((c, i) => `<div class="cena cena-${i + 1}" data-cena="${i}"><picture>${/^\/img\/hero\/cena\d\.webp$/.test(c.img) ? `<source media="(max-width: 700px)" srcset="${esc(c.img.replace('.webp', '-m.webp'))}">` : ''}<img src="${esc(c.img)}" alt="" ${i === 0 ? 'fetchpriority="high"' : 'loading="eager"'} decoding="async"></picture></div>`).join('')}
+      <div class="cena" data-cena><picture>${imgHero === '/img/hero/cena1.webp' ? `<source media="(max-width: 700px)" srcset="/img/hero/cena1-m.webp">` : ''}<img src="${esc(imgHero)}" alt="" fetchpriority="high" decoding="async"></picture></div>
+      <div class="hero-luz" data-luz></div>
       <div class="hero-veu"></div>
+      <div class="hero-escuro" data-escuro></div>
       <div class="hero-frases">
-        ${cenas.map((c, i) => `<p class="frase frase-${i + 1}" data-frase="${i}">${fraseComItalico(c.frase)}</p>`).join('')}
+        ${frases.map((f, i) => `<p class="frase frase-${i + 1}" data-frase="${i}">${fraseComItalico(f)}</p>`).join('')}
       </div>
       <div class="hero-final" data-hero-final>
         <p class="hero-sobre">${esc(cfg.slogan)}</p>

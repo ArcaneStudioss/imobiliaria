@@ -308,6 +308,11 @@ input:focus-visible + .chave-trilho { outline: 2px solid var(--acento); outline-
 .img-previa { flex: none; width: 96px; height: 72px; border-radius: 10px; overflow: hidden; background: var(--fundo); display: grid; place-items: center; color: var(--tinta-3); border: 1px solid var(--linha); }
 .img-previa img { width: 100%; height: 100%; object-fit: cover; }
 .img-escolha > div { display: grid; gap: 6px; justify-items: start; }
+.foco-caixa { position: relative; border-radius: 12px; overflow: hidden; cursor: crosshair; background: var(--fundo); border: 1px solid var(--linha); }
+.foco-caixa .img-previa { display: block; width: 100%; height: auto; border: 0; border-radius: 0; }
+.foco-caixa .img-previa img { width: 100%; height: auto; }
+.foco-marca { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; border: 2.5px solid #fff; background: rgba(164, 85, 47, .55); box-shadow: 0 0 0 2px rgba(35, 29, 23, .55), 0 0 0 10px rgba(255, 255, 255, .22); pointer-events: none; transition: left .2s, top .2s; }
+.campo-foco .img-escolha { margin-top: 10px; }
 .cena-campo { display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 16px 0; border-top: 1px solid var(--linha); }
 .cena-n { font: 400 20px/1 var(--serifa); color: var(--acento); padding-top: 28px; }
 .chave-caixa { display: flex; gap: 10px; align-items: center; padding: 12px; background: var(--fundo); border-radius: 10px; }

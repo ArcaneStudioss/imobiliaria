@@ -50,81 +50,90 @@
   });
   menu?.addEventListener('click', e => { if (e.target.closest('a')) { menu.hidden = true; d.body.classList.remove('menu-aberto'); btnMenu.setAttribute('aria-expanded', 'false'); } });
 
-  /* ---------- hero ---------- */
+  /* ---------- hero: a câmera entra na mesma casa ---------- */
   const hero = $('[data-hero]');
   if (hero) {
-    const cenas = $$('[data-cena]', hero), frases = $$('[data-frase]', hero), final = $('[data-hero-final]', hero);
-    const trilha = $$('[data-trilha]', hero), barra = $('[data-hero-barra]', hero), veu = $('.hero-veu', hero);
+    const palco = $('.hero-palco', hero), cena = $('[data-cena]', hero), imgH = $('img', cena);
+    const frases = $$('[data-frase]', hero), final = $('[data-hero-final]', hero), luz = $('[data-luz]', hero), escuro = $('[data-escuro]', hero);
+    const trilha = $$('[data-trilha]', hero), barra = $('[data-hero-barra]', hero), dica = $('.hero-dica', hero), sobre = $('.hero-sobre', hero);
+    const [fx, fy] = (hero.dataset.foco || '60,68').split(',').map(n => clamp(Number(n) / 100, 0.15, 0.85));
     const computador = matchMedia('(min-width: 900px) and (pointer: fine)');
-    let modo = null, alvo = 0, atual = 0, rodando = false, timer = null;
+    const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    let modo = null, alvo = 0, atual = 0, rodando = false, raf = 0;
+    let geo = { px: 0, py: 0, dx: 0, dy: 0 };
 
-    const medir = () => { heroFim = hero.offsetTop + hero.offsetHeight - innerHeight; if (modo !== 'rolagem') heroFim = hero.offsetHeight; };
-    function quadro() {
-      atual += (alvo - atual) * 0.14;
-      if (Math.abs(alvo - atual) < 0.0005) atual = alvo;
-      pintar(atual);
-      if (atual !== alvo) requestAnimationFrame(quadro); else rodando = false;
+    // onde o ponto de entrada cai na tela (a foto cobre o palco; o ponto fica na mesma fração horizontal)
+    function medir() {
+      const W = palco.clientWidth, H = palco.clientHeight;
+      const nw = imgH.naturalWidth || 3200, nh = imgH.naturalHeight || 2133;
+      const k = Math.max(W / nw, H / nh), iw = nw * k, ih = nh * k;
+      imgH.style.objectPosition = `${fx * 100}% 50%`;
+      const px = (W - iw) * fx + fx * iw, py = (H - ih) / 2 + fy * ih;
+      geo = { px, py, dx: W / 2 - px, dy: H / 2 - py };
+      cena.style.transformOrigin = `${px}px ${py}px`;
+      heroFim = modo === 'rolagem' ? hero.offsetTop + hero.offsetHeight - innerHeight : hero.offsetHeight;
     }
-    function pintar(p) {
-      // cena 1: aproxima da porta e some
-      const a1 = suave(faixa(p, 0, 0.36));
-      cenas[0].style.transform = `scale(${1 + a1 * 0.95})`;
-      cenas[0].style.opacity = 1 - faixa(p, 0.27, 0.37);
-      // cena 2: entra vindo de perto, depois aproxima da janela
-      const e2 = faixa(p, 0.27, 0.42), a2 = suave(faixa(p, 0.44, 0.68));
-      cenas[1].style.opacity = faixa(p, 0.27, 0.37) * (1 - faixa(p, 0.58, 0.68));
-      cenas[1].style.transform = `scale(${1.2 - suave(e2) * 0.2 + a2 * 0.75})`;
-      // cena 3: a varanda, mais devagar
-      cenas[2].style.opacity = faixa(p, 0.58, 0.68);
-      cenas[2].style.transform = `scale(${1.22 - suave(faixa(p, 0.58, 0.92)) * 0.22})`;
-      // frases: entram e saem com desfoque
-      const janelas = [[-1, 0, 0.13, 0.21], [0.33, 0.39, 0.5, 0.57], [0.65, 0.71, 0.79, 0.85]];
+    // a câmera: aproxima da porta de vidro, atravessa e a luz da casa toma conta da tela
+    function pintarCena(p) {
+      const z = ease(faixa(p, 0.03, 0.74));
+      cena.style.transform = `translate(${geo.dx * z}px, ${geo.dy * z}px) scale(${1 + 3.4 * z})`;
+      const desfoque = faixa(p, 0.66, 0.92) * 14;
+      imgH.style.filter = `brightness(${0.9 + 0.35 * faixa(p, 0.35, 0.8)}) saturate(1.05)${desfoque > 0.2 ? ` blur(${desfoque.toFixed(1)}px)` : ''}`;
+      luz.style.opacity = faixa(p, 0.5, 0.74) * (1 - 0.55 * faixa(p, 0.8, 0.95));
+      escuro.style.opacity = faixa(p, 0.82, 0.97);
+    }
+    function pintarTexto(p) {
+      const janelas = [[-1, 0, 0.12, 0.2], [0.26, 0.32, 0.44, 0.5], [0.54, 0.6, 0.7, 0.76]];
       frases.forEach((f, i) => {
         const [ia, ib, oa, ob] = janelas[i];
-        const entra = ia < 0 ? 1 : suave(faixa(p, ia, ib)), sai = faixa(p, oa, ob);
-        const o = entra * (1 - sai);
+        const entra = ia < 0 ? 1 : suave(faixa(p, ia, ib)), sai = faixa(p, oa, ob), o = entra * (1 - sai);
         f.style.opacity = o;
         f.style.transform = `translateY(${(1 - entra) * 40 - sai * 60}px) scale(${1 + sai * 0.06})`;
-        f.style.filter = o < 0.99 ? `blur(${(1 - o) * 10}px)` : 'none';
+        f.style.filter = o < 0.99 ? `blur(${((1 - o) * 10).toFixed(1)}px)` : 'none';
       });
-      // final: título e busca
       const fin = suave(faixa(p, 0.84, 0.96));
-      final.style.opacity = fin; final.style.transform = `translateY(${(1 - fin) * 40}px)`;
-      final.classList.toggle('visivel', fin > 0.5);
-      veu.style.opacity = 1 + faixa(p, 0.84, 1) * 0.0;
-      const idx = p < 0.33 ? 0 : p < 0.64 ? 1 : 2;
+      final.style.opacity = fin; final.style.transform = `translateY(${(1 - fin) * 40}px)`; final.classList.toggle('visivel', fin > 0.5);
+      const idx = p < 0.25 ? 0 : p < 0.52 ? 1 : 2;
       trilha.forEach((t, i) => t.classList.toggle('ativa', i === idx));
       if (barra) barra.style.transform = `scaleY(${p})`;
-      $('.hero-dica', hero).style.opacity = 1 - faixa(p, 0, 0.06);
+      if (dica) dica.style.opacity = 1 - faixa(p, 0, 0.06);
+    }
+    function quadro() {
+      atual += (alvo - atual) * 0.14; if (Math.abs(alvo - atual) < 0.0005) atual = alvo;
+      pintarCena(atual); pintarTexto(atual);
+      if (atual !== alvo) requestAnimationFrame(quadro); else rodando = false;
     }
     const aoRolar = () => {
-      const total = hero.offsetHeight - innerHeight;
-      alvo = clamp((scrollY - hero.offsetTop) / total);
+      alvo = clamp((scrollY - hero.offsetTop) / (hero.offsetHeight - innerHeight));
       if (!rodando) { rodando = true; requestAnimationFrame(quadro); }
     };
+    // celular: sem rolagem presa. A câmera vai e volta devagar até a porta, e o texto acompanha.
     function modoAuto() {
-      let i = 0; const sobre = $('.hero-sobre', hero), original = sobre.textContent;
-      const textos = frases.map(f => f.textContent.trim());
-      cenas[0].classList.add('ativa');
-      timer = setInterval(() => {
-        cenas[i].classList.remove('ativa'); i = (i + 1) % cenas.length; cenas[i].classList.add('ativa');
-        sobre.style.opacity = 0; setTimeout(() => { sobre.textContent = textos[i] || original; sobre.style.opacity = 1; }, 500);
-      }, 6000);
+      const textos = frases.map(f => f.textContent.replace(/\s+/g, ' ').trim());
+      const t0 = performance.now(); let ultimo = -1;
+      const passo = agora => {
+        const ciclo = ((agora - t0) / 24000) % 2, u = ciclo < 1 ? ciclo : 2 - ciclo;
+        pintarCena(0.04 + u * 0.48);
+        const idx = u < 0.34 ? 0 : u < 0.68 ? 1 : 2;
+        if (idx !== ultimo) { ultimo = idx; sobre.style.opacity = 0; setTimeout(() => { sobre.textContent = textos[idx]; sobre.style.opacity = 0.85; }, 450); }
+        raf = requestAnimationFrame(passo);
+      };
+      raf = requestAnimationFrame(passo);
     }
     function definirModo() {
       const novo = reduzido ? 'parado' : computador.matches ? 'rolagem' : 'auto';
       if (novo === modo) return;
-      modo = novo; clearInterval(timer);
-      removeEventListener('scroll', aoRolar);
+      modo = novo; cancelAnimationFrame(raf); removeEventListener('scroll', aoRolar);
       hero.classList.remove('hero-rolagem', 'hero-auto');
-      [...cenas, ...frases, final].forEach(el => { el.style.cssText = ''; el.classList.remove('ativa'); });
-      if (modo === 'rolagem') { hero.classList.add('hero-rolagem'); addEventListener('scroll', aoRolar, { passive: true }); aoRolar(); atual = alvo; pintar(atual); }
+      [cena, imgH, luz, escuro, final, ...frases].forEach(el => (el.style.cssText = ''));
+      medir();
+      if (modo === 'rolagem') { hero.classList.add('hero-rolagem'); medir(); addEventListener('scroll', aoRolar, { passive: true }); aoRolar(); atual = alvo; pintarCena(atual); pintarTexto(atual); }
       else if (modo === 'auto') { hero.classList.add('hero-auto'); modoAuto(); }
-      medir(); atualizarTopo();
+      atualizarTopo();
     }
     computador.addEventListener('change', definirModo);
     addEventListener('resize', () => { medir(); if (modo === 'rolagem') aoRolar(); });
-    // as próximas cenas carregam depois da primeira
+    if (!imgH.complete) imgH.addEventListener('load', () => { medir(); if (modo === 'rolagem') { atual = alvo; pintarCena(atual); } }, { once: true });
     definirModo();
   }
   atualizarTopo();

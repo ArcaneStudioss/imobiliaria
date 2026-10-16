@@ -415,8 +415,8 @@
         campos: () => `<div class="grade-2">${campo('whatsapp', 'WhatsApp', cfg.whatsapp, { tipo: 'tel', attrs: 'data-fone inputmode="tel"', max: 20, dica: 'Recebe as mensagens dos botões do site.' })}${campo('telefone', 'Telefone fixo', cfg.telefone, { tipo: 'tel', attrs: 'data-fone inputmode="tel"', max: 20 })}</div>${campo('email', 'E-mail', cfg.email, { tipo: 'email', max: 120 })}${campo('endereco', 'Endereço do escritório', cfg.endereco, { max: 200 })}${campo('horario', 'Horário de atendimento', cfg.horario, { max: 160 })}` },
       { k: 'redes', t: 'Redes sociais', s: 'Instagram e Facebook', estado: ok(cfg.instagram || cfg.facebook), resumo: linha('instagram', 'Instagram') + linha('facebook', 'Facebook'),
         campos: () => `${campo('instagram', 'Instagram', cfg.instagram, { max: 60, ph: '@suaimobiliaria' })}${campo('facebook', 'Facebook', cfg.facebook, { max: 80, ph: 'endereço da página' })}` },
-      { k: 'topo', t: 'Abertura do site', s: 'As 3 cenas que aparecem ao rolar', estado: ok(true), resumo: linha('hero_1', 'Cena 1') + linha('hero_2', 'Cena 2') + linha('hero_3', 'Cena 3'),
-        campos: () => `<p class="texto-janela">No computador, as três fotos viram uma caminhada para dentro da casa conforme a pessoa rola a página. No celular, elas se alternam sozinhas. Use fotos horizontais e bem iluminadas: fachada, sala e área externa.</p>${[1, 2, 3].map(n => `<div class="cena-campo"><span class="cena-n">0${n}</span><div>${campo('hero_' + n, 'Frase', cfg['hero_' + n], { max: 80 })}${imagemCampo('hero_img_' + n, 'Foto', cfg['hero_img_' + n], n === 1 ? 'Fachada' : n === 2 ? 'Ambiente interno' : 'Área externa')}</div></div>`).join('')}`, larga: true },
+      { k: 'topo', t: 'Abertura do site', s: 'A casa e as 3 frases que aparecem ao rolar', estado: ok(true), resumo: linha('hero_1', 'Frase 1') + linha('hero_2', 'Frase 2') + linha('hero_3', 'Frase 3'),
+        campos: () => `<p class="texto-janela">A abertura é uma <strong>única casa</strong>: quem rola a página vai se aproximando dela e entra pela porta ou janela que você marcar, até a luz tomar a tela e aparecer a busca. Use uma foto horizontal e bem iluminada, de preferência com a porta ou a sala visível, e que seja do mesmo imóvel do começo ao fim.</p>${focoCampo(cfg.hero_img_1, cfg.hero_foco)}${[1, 2, 3].map(n => campo('hero_' + n, `Frase ${n}`, cfg['hero_' + n], { max: 80 })).join('')}`, larga: true },
       { k: 'sobre', t: 'Quem somos', s: 'Título e texto de apresentação', estado: ok(cfg.sobre_texto), resumo: linha('sobre_titulo', 'Título'),
         campos: () => `${campo('sobre_titulo', 'Título', cfg.sobre_titulo, { max: 160 })}${campo('sobre_texto', 'Texto', cfg.sobre_texto, { tipo: 'textarea', max: 1500, dica: 'Fale da história, da região e de como vocês atendem. Sem números inventados.' })}` },
       { k: 'google', t: 'Google e anúncios', s: 'Analytics, Search Console e Pixel da Meta', estado: ok(cfg.ga4), resumo: linha('ga4', 'Google Analytics') + `<div class="resumo-linha"><dt>Search Console</dt><dd>${cfg.verificacao_google ? 'Verificado' : '<em>vazio</em>'}</dd></div>` + linha('pixel_meta', 'Pixel da Meta'),
@@ -428,9 +428,21 @@
     $$('[data-editar]').forEach(b => b.addEventListener('click', () => {
       const bl = blocos.find(x => x.k === b.dataset.editar);
       const { form, dlg, fechar } = janela({ titulo: bl.t, sub: 'Editar', corpo: bl.campos(), larga: bl.larga, acoes: '<button type="button" class="btn btn-fantasma" data-fechar>Cancelar</button><button type="submit" class="btn btn-escuro">Salvar</button>' });
-      ligarImagens(dlg);
+      ligarImagens(dlg); ligarFoco(dlg);
       form.addEventListener('submit', async e => { e.preventDefault(); try { const novo = await ocupado($('[type=submit]', form), () => api('PUT', '/config', dadosForm(form))); estado.site = novo.nome; avisar('Salvo. Já está no site.'); fechar(); telaSite(); } catch (er) { erroCampo(form, er); } });
     }));
+  }
+  // foto da casa com o ponto de entrada: clique na foto onde a câmera deve entrar
+  const focoCampo = (img, foco) => { return `<div class="campo campo-imagem campo-foco"><span class="rotulo">Foto da casa e ponto de entrada</span><div class="foco-caixa" data-foco-caixa><span class="img-previa">${img ? `<img src="${esc(img)}" alt="">` : ic('foto')}</span><i class="foco-marca" data-foco-marca></i></div><div class="img-escolha"><div><label class="btn btn-fantasma btn-p"><input type="file" accept="image/*" hidden data-img="hero_img_1">${ic('nuvem')}Trocar foto</label><span class="dica">Clique na foto no ponto onde a câmera deve entrar, como uma porta de vidro ou uma janela acesa. O ponto precisa ficar longe das bordas.</span></div></div><input type="hidden" name="hero_img_1" value="${esc(img)}"><input type="hidden" name="hero_foco" value="${esc(foco || '60,68')}"></div>`; };
+  function ligarFoco(raiz) {
+    const caixa = $('[data-foco-caixa]', raiz); if (!caixa) return;
+    const marca = $('[data-foco-marca]', caixa), campoFoco = $('input[name=hero_foco]', raiz);
+    const [x0, y0] = String(campoFoco.value || '60,68').split(',').map(Number); marca.style.left = x0 + '%'; marca.style.top = y0 + '%';   // pelo script: o painel não aceita style inline
+    caixa.addEventListener('click', e => {
+      const r = caixa.getBoundingClientRect(); if (!r.width || !r.height) return;
+      const x = Math.round(Math.min(85, Math.max(15, (e.clientX - r.left) / r.width * 100))), y = Math.round(Math.min(85, Math.max(15, (e.clientY - r.top) / r.height * 100)));
+      marca.style.left = x + '%'; marca.style.top = y + '%'; campoFoco.value = `${x},${y}`;
+    });
   }
   const imagemCampo = (nome, rotulo, valor, dica) => `<div class="campo campo-imagem"><span class="rotulo">${rotulo}</span><div class="img-escolha"><span class="img-previa">${valor ? `<img src="${esc(valor)}" alt="">` : ic('foto')}</span><div><label class="btn btn-fantasma btn-p"><input type="file" accept="image/*" hidden data-img="${nome}">${ic('nuvem')}Trocar foto</label>${dica ? `<span class="dica">${dica}</span>` : ''}</div></div><input type="hidden" name="${nome}" value="${esc(valor)}"></div>`;
   function ligarImagens(raiz) {

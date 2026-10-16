@@ -124,45 +124,39 @@ body.menu-aberto .topo { background: var(--linho) !important; color: var(--tinta
   .marca { margin-right: 0; flex: 1; }
 }
 
-/* ---- hero ---- */
+/* ---- hero: a câmera entra na mesma casa ---- */
 .hero { position: relative; height: 100svh; min-height: 600px; background: var(--noite); color: var(--papel); }
 .hero-palco { position: relative; height: 100%; overflow: hidden; isolation: isolate; }
-.cena { position: absolute; inset: 0; will-change: transform, opacity; }
-.cena picture, .cena img { width: 100%; height: 100%; }
-.cena img { object-fit: cover; filter: brightness(.9) saturate(1.04); }
-.cena-2 img { filter: brightness(.74) saturate(1.05) contrast(1.04); }
-.cena:not(.cena-1) { opacity: 0; }
-.hero-veu { position: absolute; inset: 0; z-index: 2; pointer-events: none;
+.cena { position: absolute; inset: 0; will-change: transform; }
+.cena picture, .cena img { display: block; width: 100%; height: 100%; }
+.cena img { object-fit: cover; filter: brightness(.9) saturate(1.05); will-change: filter; }
+.hero-luz { position: absolute; inset: 0; z-index: 2; opacity: 0; pointer-events: none; mix-blend-mode: screen;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 233, 190, .96), rgba(255, 196, 120, .6) 42%, rgba(255, 170, 90, 0) 78%); }
+.hero-veu { position: absolute; inset: 0; z-index: 3; pointer-events: none;
   background: linear-gradient(180deg, rgba(29, 24, 19, .55) 0%, rgba(29, 24, 19, .05) 26%, rgba(29, 24, 19, .05) 46%, rgba(29, 24, 19, .78) 100%),
               radial-gradient(120% 80% at 50% 50%, transparent 55%, rgba(29, 24, 19, .35)); }
+.hero-escuro { position: absolute; inset: 0; z-index: 3; opacity: 0; pointer-events: none; background: rgba(29, 24, 19, .5); }
+.hero-frases { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; pointer-events: none; padding: 0 var(--gutter); }
 .hero-frases::before { content: ''; position: absolute; inset: 15% 5%; background: radial-gradient(closest-side, rgba(29, 24, 19, .38), transparent); pointer-events: none; }
-.hero-frases { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; pointer-events: none; padding: 0 var(--gutter); }
 .frase { grid-area: 1 / 1; margin: 0; text-align: center; font: 300 clamp(44px, 12vw, 150px)/.98 var(--serifa); letter-spacing: -.03em; max-width: 13ch; opacity: 0; text-shadow: 0 2px 30px rgba(0, 0, 0, .3), 0 1px 3px rgba(0, 0, 0, .2); position: relative; }
 .frase em { display: block; }
-.hero-final { position: absolute; inset: auto 0 0; z-index: 4; padding: 0 var(--gutter) 40px; }
-.hero-sobre { font: 600 11px/1 var(--sem); letter-spacing: .28em; text-transform: uppercase; opacity: .85; margin-bottom: 18px; }
+.hero-final { position: absolute; inset: auto 0 0; z-index: 5; padding: 0 var(--gutter) 40px; }
+.hero-sobre { font: 600 11px/1 var(--sem); letter-spacing: .28em; text-transform: uppercase; opacity: .85; margin-bottom: 18px; transition: opacity .5s; }
 .hero-titulo { font-size: clamp(42px, 11vw, 100px); line-height: .98; max-width: 12ch; letter-spacing: -.03em; margin-bottom: 8px; }
 .hero-titulo em { display: block; }
 .hero-final .busca { display: none; }
 .hero-trilha { display: none; }
 .hero:not(.hero-rolagem) .hero-trilha { display: none !important; }
-.hero-dica { position: absolute; z-index: 4; left: 50%; bottom: 22px; transform: translateX(-50%); margin: 0; font: 500 11px/1 var(--sem); letter-spacing: .25em; text-transform: uppercase; opacity: .75; display: none; }
+.hero-dica { position: absolute; z-index: 5; left: 50%; bottom: 22px; transform: translateX(-50%); margin: 0; font: 500 11px/1 var(--sem); letter-spacing: .25em; text-transform: uppercase; opacity: .75; display: none; }
 .hero-dica::after { content: ''; display: block; width: 1px; height: 36px; margin: 12px auto 0; background: linear-gradient(currentColor, transparent); animation: pinga 2.2s var(--suave) infinite; transform-origin: top; }
 @keyframes pinga { 0% { transform: scaleY(0); } 50% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
 
-/* modo celular: as cenas se alternam sozinhas, com zoom lento */
-.hero-auto .cena { opacity: 0; transition: opacity 1.6s ease; }
-.hero-auto .cena.ativa { opacity: 1; }
-.hero-auto .cena.ativa img { animation: aproxima 9s linear forwards; }
+/* celular: a câmera vai e volta devagar em direção à porta, sozinha */
 .hero-auto .frase { display: none; }
-@keyframes aproxima { from { transform: scale(1.02); } to { transform: scale(1.14); } }
-.hero-auto .hero-sobre { transition: opacity .6s; }
 
-/* modo computador: a rolagem conduz a câmera para dentro da casa */
+/* computador: a rolagem conduz a câmera para dentro da casa */
 .hero-rolagem { height: 400vh; min-height: 0; }
 .hero-rolagem .hero-palco { position: sticky; top: 0; height: 100vh; min-height: 620px; }
-.hero-rolagem .cena { opacity: 0; }
-.hero-rolagem .cena-1 { opacity: 1; }
 .hero-rolagem .hero-final { opacity: 0; pointer-events: none; }
 .hero-rolagem .hero-final.visivel { pointer-events: auto; }
 .hero-rolagem .hero-dica { display: block; }
@@ -172,8 +166,7 @@ body.menu-aberto .topo { background: var(--linho) !important; color: var(--tinta
   .hero-final { padding: 0 var(--gutter) 56px; max-width: var(--larg); margin: 0 auto; left: 0; right: 0; }
   .hero-final .busca { display: block; margin-top: 30px; }
   .busca-movel { display: none; }
-  .hero-trilha { display: flex; position: absolute; z-index: 4; right: var(--gutter); top: 50%; transform: translateY(-50%); flex-direction: column; gap: 18px; font: 500 12px/1 var(--sem); letter-spacing: .14em; text-transform: uppercase; }
-  .hero-auto .hero-trilha { display: none; }
+  .hero-trilha { display: flex; position: absolute; z-index: 5; right: var(--gutter); top: 50%; transform: translateY(-50%); flex-direction: column; gap: 18px; font: 500 12px/1 var(--sem); letter-spacing: .14em; text-transform: uppercase; }
   .hero-trilha span { display: flex; gap: 10px; align-items: center; opacity: .45; transition: opacity .4s; }
   .hero-trilha span.ativa { opacity: 1; }
   .hero-trilha b { font-weight: 500; font-variant-numeric: tabular-nums; }
