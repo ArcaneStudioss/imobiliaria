@@ -130,6 +130,7 @@ body.menu-aberto .topo { background: var(--linho) !important; color: var(--tinta
 .cena { position: absolute; inset: 0; will-change: transform; }
 .cena picture, .cena img { display: block; width: 100%; height: 100%; }
 .cena img { object-fit: cover; filter: brightness(.9) saturate(1.05); will-change: filter; }
+.cena-quadros { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .hero-luz { position: absolute; inset: 0; z-index: 2; opacity: 0; pointer-events: none; mix-blend-mode: screen;
   background: radial-gradient(circle at 50% 50%, rgba(255, 233, 190, .96), rgba(255, 196, 120, .6) 42%, rgba(255, 170, 90, 0) 78%); }
 .hero-veu { position: absolute; inset: 0; z-index: 3; pointer-events: none;

@@ -2,6 +2,16 @@
 // Páginas do site, montadas no servidor (bom para o Google e rápido no celular).
 const { esc, reais, num, soDigitos, TIPOS, SITUACOES } = require('./util');
 const { idYoutube } = require('./imoveis');
+const fs = require('node:fs'), path = require('node:path');
+
+// Abertura em vídeo: se existir public/img/hero/seq/meta.json (gerado por scripts/hero-video.sh), a rolagem passa os quadros.
+function sequenciaHero() {
+  try {
+    const m = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'public', 'img', 'hero', 'seq', 'meta.json'), 'utf8'));
+    const total = Number(m.total) | 0, totalM = Number(m.totalMobile) | 0, v = String(m.v || '').replace(/\W/g, '');
+    return total > 1 && totalM > 1 ? { total, totalM, v } : null;
+  } catch { return null; }
+}
 
 const ICONES = {
   cama: '<path d="M3 18v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6M3 18h18M3 18v2m18-2v2M6 10V7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3m0 0V7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/>',
@@ -231,10 +241,12 @@ function home({ cfg, v, base, op, destaques, contagens }) {
   const foco = `${Math.min(85, Math.max(15, fx0 || 60))},${Math.min(85, Math.max(15, fy0 || 68))}`;
   const frases = [cfg.hero_1, cfg.hero_2, cfg.hero_3];
   const rotulos = ['Fachada', 'Entrada', 'Dentro'];
-  const imgHero = cfg.hero_img_1;
+  const seq = sequenciaHero(), sd = '/img/hero/seq/';
+  const imgHero = seq ? `${sd}f-001.webp?v=${seq.v}` : cfg.hero_img_1;
+  const quadros = seq ? `<canvas class="cena-quadros" data-quadros data-frames="${sd}f-{n}.webp" data-total="${seq.total}" data-frames-m="${sd}m-{n}.webp" data-total-m="${seq.totalM}" data-v="${seq.v}" aria-hidden="true"></canvas>` : '';
   const hero = `<section class="hero" data-hero data-foco="${foco}" aria-label="Apresentação">
     <div class="hero-palco">
-      <div class="cena" data-cena><picture>${imgHero === '/img/hero/cena1.webp' ? `<source media="(max-width: 700px)" srcset="/img/hero/cena1-m.webp">` : ''}<img src="${esc(imgHero)}" alt="" fetchpriority="high" decoding="async"></picture></div>
+      <div class="cena" data-cena><picture>${seq ? `<source media="(max-width: 700px)" srcset="${sd}m-001.webp?v=${seq.v}">` : imgHero === '/img/hero/cena1.webp' ? `<source media="(max-width: 700px)" srcset="/img/hero/cena1-m.webp">` : ''}<img src="${esc(imgHero)}" alt="" fetchpriority="high" decoding="async"></picture>${quadros}</div>
       <div class="hero-luz" data-luz></div>
       <div class="hero-veu"></div>
       <div class="hero-escuro" data-escuro></div>
