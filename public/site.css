@@ -157,7 +157,7 @@ body.menu-aberto .topo { background: var(--linho) !important; color: var(--tinta
 
 /* computador: a rolagem conduz a câmera para dentro da casa */
 .hero-rolagem { height: 400vh; min-height: 0; }
-.hero-rolagem .hero-palco { position: sticky; top: 0; height: 100vh; min-height: 620px; }
+.hero-rolagem .hero-palco { position: sticky; top: 0; height: 100vh; height: 100lvh; min-height: 620px; }
 .hero-rolagem .hero-final { opacity: 0; pointer-events: none; }
 .hero-rolagem .hero-final.visivel { pointer-events: auto; }
 .hero-rolagem .hero-dica { display: block; }

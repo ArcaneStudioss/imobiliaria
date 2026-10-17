@@ -60,11 +60,11 @@
     const computador = matchMedia('(min-width: 900px) and (pointer: fine)');
     // abertura em vídeo: a rolagem passa os quadros (PC e celular); sem isso, a foto aproxima a câmera
     const tela = $('[data-quadros]', hero), celular = matchMedia('(max-width: 700px)');
-    let jogo = null;
+    let jogo = null; const LIMITE_CORTE = 13;
     const ctx = tela && tela.getContext('2d');
     function carregarJogo() {
       const m = celular.matches, modelo = m ? tela.dataset.framesM : tela.dataset.frames, total = Number(m ? tela.dataset.totalM : tela.dataset.total) || 0;
-      const novo = { imgs: new Array(total), total, vivo: true };
+      const novo = { imgs: new Array(total), cortes: [], total, vivo: true };
       if (jogo) jogo.vivo = false;
       jogo = novo;
       const url = i => modelo.replace('{n}', String(i + 1).padStart(3, '0')) + '?v=' + tela.dataset.v;
@@ -79,6 +79,16 @@
       for (let k = i + 1; k < jogo.total; k++) if (jogo.imgs[k]) return jogo.imgs[k];
       return null;
     }
+    const mini = d.createElement('canvas'); mini.width = mini.height = 16;
+    const mctx = mini.getContext('2d', { willReadFrequently: true });
+    const amostra = im => { mctx.drawImage(im, 0, 0, 16, 16); return mctx.getImageData(0, 0, 16, 16).data; };
+    function ehCorte(i) { // diferença média entre o quadro i e o i+1; alta = outra cena
+      if (jogo.cortes[i] !== undefined) return jogo.cortes[i];
+      const a = jogo.imgs[i], b = jogo.imgs[i + 1]; if (!a || !b) return false;
+      const x = amostra(a), y = amostra(b); let soma = 0;
+      for (let k = 0; k < x.length; k += 4) soma += Math.abs(x[k] - y[k]) + Math.abs(x[k + 1] - y[k + 1]) + Math.abs(x[k + 2] - y[k + 2]);
+      return (jogo.cortes[i] = soma / (x.length / 4) / 3 > LIMITE_CORTE);
+    }
     function pintarQuadros(p) {
       if (!jogo || !ctx) return;
       const dpr = Math.min(devicePixelRatio || 1, 2), W = Math.round(palco.clientWidth * dpr), H = Math.round(palco.clientHeight * dpr);
@@ -91,7 +101,8 @@
       };
       cobrir(a, 1);
       const b = f > 0.02 && i + 1 < jogo.total ? jogo.imgs[i + 1] : null;
-      if (b && b !== a) cobrir(b, f); // mistura com o quadro seguinte: fica fluido mesmo com poucos quadros
+      // mistura com o quadro seguinte (fluido com poucos quadros), mas não por cima de um corte de cena: ali fica imagem dupla
+      if (b && b !== a && jogo.imgs[i] === a && !ehCorte(i)) cobrir(b, f);
       ctx.globalAlpha = 1;
     }
     const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -107,7 +118,7 @@
       const px = (W - iw) * fx + fx * iw, py = (H - ih) / 2 + fy * ih;
       geo = { px, py, dx: W / 2 - px, dy: H / 2 - py };
       cena.style.transformOrigin = `${px}px ${py}px`;
-      heroFim = modo === 'rolagem' ? hero.offsetTop + hero.offsetHeight - innerHeight : hero.offsetHeight;
+      heroFim = modo === 'rolagem' ? hero.offsetTop + hero.offsetHeight - palco.clientHeight : hero.offsetHeight;
     }
     // a câmera: aproxima da porta de vidro, atravessa e a luz da casa toma conta da tela
     function pintarCena(p) {
@@ -141,7 +152,7 @@
       if (atual !== alvo) requestAnimationFrame(quadro); else rodando = false;
     }
     const aoRolar = () => {
-      alvo = clamp((scrollY - hero.offsetTop) / (hero.offsetHeight - innerHeight));
+      alvo = clamp((scrollY - hero.offsetTop) / (hero.offsetHeight - palco.clientHeight));
       if (!rodando) { rodando = true; requestAnimationFrame(quadro); }
     };
     // celular: sem rolagem presa. A câmera vai e volta devagar até a porta, e o texto acompanha.
@@ -170,7 +181,9 @@
     }
     computador.addEventListener('change', definirModo);
     if (tela && !reduzido) { carregarJogo(); celular.addEventListener('change', () => { carregarJogo(); if (modo === 'rolagem') pintarCena(atual); }); }
-    addEventListener('resize', () => { medir(); if (modo === 'rolagem') { aoRolar(); pintarCena(atual); } });
+    let larguraAntes = innerWidth;
+    // no celular a barra do navegador sobe e desce e dispara "resize": só refaz se a largura mudou (girar a tela)
+    addEventListener('resize', () => { if (tela && innerWidth === larguraAntes) return; larguraAntes = innerWidth; medir(); if (modo === 'rolagem') { aoRolar(); pintarCena(atual); } });
     if (!imgH.complete) imgH.addEventListener('load', () => { medir(); if (modo === 'rolagem') { atual = alvo; pintarCena(atual); } }, { once: true });
     definirModo();
   }
