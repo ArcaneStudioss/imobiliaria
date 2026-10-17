@@ -61,7 +61,7 @@
     // abertura em vídeo: a rolagem passa os quadros (PC e celular); sem isso, a foto aproxima a câmera
     const tela = $('[data-quadros]', hero), celular = matchMedia('(max-width: 700px)');
     let jogo = null;
-    const ctx = tela && tela.getContext('2d', { alpha: false });
+    const ctx = tela && tela.getContext('2d');
     function carregarJogo() {
       const m = celular.matches, modelo = m ? tela.dataset.framesM : tela.dataset.frames, total = Number(m ? tela.dataset.totalM : tela.dataset.total) || 0;
       const novo = { imgs: new Array(total), total, vivo: true };
