@@ -406,11 +406,40 @@
   });
 
   /* ---------- revelar ao rolar ---------- */
+  $$('.cartao').forEach(c => c.setAttribute('data-revela', '')); // cartões de imóvel também entram ao rolar
+  // títulos de seção: cada palavra sobe de dentro de uma máscara (o texto continua real, o leitor de tela lê igual)
+  const dividir = el => {
+    let n = 0;
+    const andar = no => [...no.childNodes].forEach(c => {
+      if (c.nodeType === 3) {
+        const f = d.createDocumentFragment();
+        c.textContent.split(/(\s+)/).forEach(p => {
+          if (!p) return;
+          if (/^\s+$/.test(p)) { f.append(p); return; }
+          const o = d.createElement('span'), s = d.createElement('span');
+          o.className = 'pl'; s.textContent = p; s.style.setProperty('--i', n++); o.append(s); f.append(o);
+        });
+        c.replaceWith(f);
+      } else if (c.nodeType === 1) andar(c);
+    });
+    andar(el); el.classList.add('dividido');
+  };
+  if (!reduzido) $$('.titulo-secao[data-revela]').forEach(dividir);
   const reveladores = $$('[data-revela]');
   if ('IntersectionObserver' in window && !reduzido) {
-    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visto'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
-    reveladores.forEach((el, i) => { el.style.transitionDelay = (i % 4) * 70 + 'ms'; io.observe(el); });
-  } else reveladores.forEach(el => el.classList.add('visto'));
+    // quem entra junto na tela entra em sequência (até 5 degraus); o atraso sai depois para não pesar no hover
+    const io = new IntersectionObserver(es => {
+      let k = 0;
+      es.forEach(e => {
+        if (!e.isIntersecting) return;
+        const el = e.target;
+        if (!el.classList.contains('dividido')) el.style.transitionDelay = Math.min(k++, 5) * 80 + 'ms';
+        el.classList.add('visto'); io.unobserve(el);
+        setTimeout(() => { el.style.transitionDelay = ''; el.classList.add('pronto'); }, 1800);
+      });
+    }, { rootMargin: '0px 0px -8% 0px' });
+    reveladores.forEach(el => io.observe(el));
+  } else reveladores.forEach(el => el.classList.add('visto', 'pronto'));
 
   /* ---------- ficha: galeria e visor ---------- */
   const fotos = dadosPagina.fotos || [];

@@ -26,7 +26,8 @@
   --raio-g: 22px;
   --gutter: 20px;
   --larg: 1240px;
-  --suave: cubic-bezier(.22, .7, .2, 1);
+  --suave: cubic-bezier(.22, 1, .36, 1); /* ease-out forte: arranca rápido e pousa devagar */
+  --saida: cubic-bezier(.4, 0, 1, 1);
   --topo-h: 68px;
   color-scheme: light;
 }
@@ -258,7 +259,8 @@ fieldset.segmento-pequeno:has(legend) label:last-of-type { border-radius: 0 999p
 .chips legend { width: 100%; padding: 0; float: left; }
 .chips label { position: relative; }
 .chips input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
-.chips span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--linha-forte); background: #FFFDF9; font-size: 14.5px; cursor: pointer; transition: all .2s; }
+.chips span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--linha-forte); background: #FFFDF9; font-size: 14.5px; cursor: pointer; transition: background-color .2s, border-color .2s, color .2s, transform .15s var(--suave); }
+.chips label:active span { transform: scale(.97); }
 .chips input:checked + span { background: var(--tinta); border-color: var(--tinta); color: var(--papel); }
 .chips input:focus-visible + span { outline: 2px solid var(--terracota); outline-offset: 2px; }
 .chips-cheios { display: grid; grid-template-columns: 1fr 1fr; }
@@ -636,8 +638,62 @@ body.travado { overflow: hidden; }
 .nao-achou { padding-top: calc(var(--topo-h) + 80px); padding-bottom: 120px; min-height: 70vh; }
 .nao-achou .vazio-acoes { justify-content: flex-start; }
 
+/* ---- movimento v2 ---- */
+/* cartões de imóvel entram junto com a rolagem (o JS marca com data-revela); deslocamento menor que o respiro do carrossel */
+.js .cartao[data-revela] { transform: translateY(16px); }
+.js .cartao[data-revela].visto { transform: none; }
+
+/* fotos grandes: abrem como uma janela e assentam (zoom 1,18 -> 1) */
+.js .estilo[data-revela], .js .sobre-foto[data-revela] { transform: none; clip-path: inset(9% 7% round var(--raio-g)); transition: opacity .7s var(--suave), clip-path 1.3s var(--suave); }
+.js .estilo[data-revela].visto, .js .sobre-foto[data-revela].visto { clip-path: inset(0 round var(--raio-g)); }
+.js .estilo[data-revela].pronto, .js .sobre-foto[data-revela].pronto { clip-path: none; } /* libera o contorno de foco */
+.js .estilo[data-revela] img, .js .sobre-foto[data-revela] img { scale: 1.18; transition: scale 1.8s var(--suave), transform 1.4s var(--suave); }
+.js .estilo[data-revela].visto img, .js .sobre-foto[data-revela].visto img { scale: 1; }
+
+/* títulos de seção: palavra por palavra, de dentro de uma máscara */
+.js .dividido[data-revela] { opacity: 1; transform: none; transition: none; }
+.pl { display: inline-block; overflow: hidden; vertical-align: top; padding: .02em .06em .14em; margin: -.02em -.06em -.14em; }
+.pl > span { display: inline-block; transform: translateY(112%); transition: transform 1s var(--suave); transition-delay: calc(var(--i, 0) * 55ms); }
+.dividido.visto .pl > span { transform: none; }
+
+/* pilares: a linha desenha da esquerda para a direita */
+.js .pilares li { border-top-color: transparent; position: relative; }
+.js .pilares li::before { content: ''; position: absolute; left: 0; right: 0; top: -1px; height: 1px; background: var(--linha-forte); transform: scaleX(0); transform-origin: left; transition: transform 1.3s var(--suave); }
+.js .pilares li.visto::before { transform: none; }
+
+/* cartão de imóvel: foto sobe e ganha sombra no mouse */
+@media (hover: hover) and (pointer: fine) {
+  .cartao-foto { transition: transform .5s var(--suave), box-shadow .5s var(--suave); }
+  .cartao-link:hover .cartao-foto { transform: translateY(-4px); box-shadow: var(--sombra-alta); }
+}
+
+/* entrada do topo e do menu do celular */
+@keyframes topo-in { from { opacity: 0; transform: translateY(-12px); } }
+.js .topo { animation: topo-in .8s var(--suave) .15s backwards; }
+.menu-movel nav a { animation: desce-link .6s var(--suave) backwards; animation-delay: calc(var(--i, 0) * 55ms + 80ms); }
+.menu-movel nav a:nth-child(1) { --i: 0; } .menu-movel nav a:nth-child(2) { --i: 1; } .menu-movel nav a:nth-child(3) { --i: 2; }
+.menu-movel nav a:nth-child(4) { --i: 3; } .menu-movel nav a:nth-child(5) { --i: 4; } .menu-movel nav a:nth-child(6) { --i: 5; }
+@keyframes desce-link { from { opacity: 0; transform: translateY(14px); } }
+
+/* WhatsApp flutuante: chama a atenção duas vezes ao aparecer, depois fica quieto */
+.whats-flutuante::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 0 0 rgba(43, 35, 28, .35); pointer-events: none; }
+.whats-flutuante.visivel::after { animation: anel 1.8s var(--suave) .6s 2; }
+@keyframes anel { to { box-shadow: 0 0 0 16px rgba(43, 35, 28, 0); } }
+
+/* troca de página: dissolve em vez de piscar (navegadores com View Transitions) */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root) { animation: vt-sai .2s var(--saida) both; }
+  ::view-transition-new(root) { animation: vt-entra .5s var(--suave) both; }
+}
+@keyframes vt-sai { to { opacity: 0; } }
+@keyframes vt-entra { from { opacity: 0; } }
+
 /* ---- movimento reduzido ---- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
-  .js [data-revela] { opacity: 1; transform: none; }
+  .js [data-revela], .js .cartao[data-revela] { opacity: 1; transform: none; clip-path: none; }
+  .js .estilo[data-revela] img, .js .sobre-foto[data-revela] img { scale: 1; }
+  .pl > span { transform: none; }
+  .js .pilares li::before { transform: none; }
 }
