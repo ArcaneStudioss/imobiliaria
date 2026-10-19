@@ -200,7 +200,7 @@
   atualizarTopo();
 
   /* ---------- select próprio ---------- */
-  let selAberto = null;
+  let selAberto = null, contaSel = 0;
   function melhorarSelect(sel) {
     if (sel._melhorado) return; sel._melhorado = true;
     const caixa = d.createElement('div'); caixa.className = 'sel';
@@ -209,7 +209,7 @@
     botao.setAttribute('aria-haspopup', 'listbox'); botao.setAttribute('aria-expanded', 'false');
     const texto = d.createElement('span'); botao.append(texto); botao.insertAdjacentHTML('beforeend', ICONE('baixo'));
     const lista = d.createElement('ul'); lista.className = 'sel-lista'; lista.setAttribute('role', 'listbox'); lista.tabIndex = -1;
-    lista.id = 'sl-' + Math.random().toString(36).slice(2, 8); botao.setAttribute('aria-controls', lista.id);
+    lista.id = 'sl-' + (++contaSel); botao.setAttribute('aria-controls', lista.id);
     caixa.append(botao, sel, lista);
     sel.tabIndex = -1; sel.setAttribute('aria-hidden', 'true');
     const rotulo = sel.closest('label')?.querySelector('.campo-rotulo')?.textContent;

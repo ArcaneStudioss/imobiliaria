@@ -159,6 +159,10 @@ async function rotear(req, res) {
   return html(req, res, 404, pg.naoEncontrado({ cfg, v, base: b }));
 }
 
+// uma requisição ruim não derruba o site: registra e segue
+process.on('uncaughtException', e => console.error('[site] exceção:', e));
+process.on('unhandledRejection', e => console.error('[site] promessa rejeitada:', e));
+
 const servidor = http.createServer((req, res) => {
   rotear(req, res).catch(e => {
     console.error('[site] erro:', e);
