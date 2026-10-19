@@ -61,14 +61,17 @@
     // abertura em vídeo: a rolagem passa os quadros (PC e celular); sem isso, a foto aproxima a câmera
     const tela = $('[data-quadros]', hero), celular = matchMedia('(max-width: 700px)');
     let jogo = null; const LIMITE_CORTE = 13;
-    const ctx = tela && tela.getContext('2d');
+    const ctx = tela && tela.getContext('2d', { alpha: false, desynchronized: true });
+    let ultimoDesenho = '';
     function carregarJogo() {
       const m = celular.matches, modelo = m ? tela.dataset.framesM : tela.dataset.frames, total = Number(m ? tela.dataset.totalM : tela.dataset.total) || 0;
       const novo = { imgs: new Array(total), cortes: [], total, vivo: true };
       if (jogo) jogo.vivo = false;
       jogo = novo;
       const url = i => modelo.replace('{n}', String(i + 1).padStart(3, '0')) + '?v=' + tela.dataset.v;
-      const pedir = i => new Promise(ok => { const im = new Image(); im.decoding = 'async'; im.onload = () => { novo.imgs[i] = im; ok(); }; im.onerror = ok; im.src = url(i); });
+      const pronto = (im, i, ok) => { novo.imgs[i] = im; marcarCortes(novo, i); ok(); };
+      // decode() deixa o quadro já decodificado antes de entrar na rolagem (sem travada na hora de desenhar)
+      const pedir = i => new Promise(ok => { const im = new Image(); im.decoding = 'async'; im.src = url(i); (im.decode ? im.decode() : new Promise(r => { im.onload = r; })).then(() => pronto(im, i, ok), ok); });
       // primeiro quadro, depois o resto em segundo plano (4 por vez, pulando de dois em dois para o vídeo ficar inteiro cedo)
       const ordem = []; for (let i = 0; i < total; i += 2) ordem.push(i); for (let i = 1; i < total; i += 2) ordem.push(i);
       let k = 0; const worker = async () => { while (novo.vivo && k < ordem.length) { await pedir(ordem[k++]); if (novo === jogo) pintarCena(atual); } };
@@ -82,19 +85,25 @@
     const mini = d.createElement('canvas'); mini.width = mini.height = 16;
     const mctx = mini.getContext('2d', { willReadFrequently: true });
     const amostra = im => { mctx.drawImage(im, 0, 0, 16, 16); return mctx.getImageData(0, 0, 16, 16).data; };
-    function ehCorte(i) { // diferença média entre o quadro i e o i+1; alta = outra cena
-      if (jogo.cortes[i] !== undefined) return jogo.cortes[i];
-      const a = jogo.imgs[i], b = jogo.imgs[i + 1]; if (!a || !b) return false;
+    function diferenca(a, b) { // diferença média entre dois quadros; alta = outra cena
       const x = amostra(a), y = amostra(b); let soma = 0;
       for (let k = 0; k < x.length; k += 4) soma += Math.abs(x[k] - y[k]) + Math.abs(x[k + 1] - y[k + 1]) + Math.abs(x[k + 2] - y[k + 2]);
-      return (jogo.cortes[i] = soma / (x.length / 4) / 3 > LIMITE_CORTE);
+      return soma / (x.length / 4) / 3 > LIMITE_CORTE;
     }
+    // calculado quando o quadro chega, nunca durante a rolagem (getImageData na rolagem trava o celular)
+    function marcarCortes(j, i) {
+      for (const k of [i - 1, i]) if (k >= 0 && j.cortes[k] === undefined && j.imgs[k] && j.imgs[k + 1]) j.cortes[k] = diferenca(j.imgs[k], j.imgs[k + 1]);
+    }
+    const ehCorte = i => jogo.cortes[i] !== false; // ainda não medido: não mistura, é o lado seguro
     function pintarQuadros(p) {
       if (!jogo || !ctx) return;
-      const dpr = Math.min(devicePixelRatio || 1, 2), W = Math.round(palco.clientWidth * dpr), H = Math.round(palco.clientHeight * dpr);
+      const dpr = celular.matches ? 1 : Math.min(devicePixelRatio || 1, 2), W = Math.round(palco.clientWidth * dpr), H = Math.round(palco.clientHeight * dpr);
       if (tela.width !== W || tela.height !== H) { tela.width = W; tela.height = H; }
       const x = clamp(p / 0.9) * (jogo.total - 1), i = Math.floor(x), f = x - i;
       const a = quadroMaisProximo(i); if (!a) return;
+      const chave = `${jogo.total}|${W}|${H}|${i}|${Math.round(f * 8)}|${jogo.imgs.filter(Boolean).length}`;
+      if (chave === ultimoDesenho) return; // nada mudou: não redesenha
+      ultimoDesenho = chave;
       const cobrir = (im, alfa) => {
         const k = Math.max(W / im.naturalWidth, H / im.naturalHeight), w = im.naturalWidth * k, h = im.naturalHeight * k;
         ctx.globalAlpha = alfa; ctx.drawImage(im, (W - w) / 2, (H - h) / 2, w, h);
@@ -137,7 +146,8 @@
         const entra = ia < 0 ? 1 : suave(faixa(p, ia, ib)), sai = faixa(p, oa, ob), o = entra * (1 - sai);
         f.style.opacity = o;
         f.style.transform = `translateY(${(1 - entra) * 40 - sai * 60}px) scale(${1 + sai * 0.06})`;
-        f.style.filter = o < 0.99 ? `blur(${((1 - o) * 10).toFixed(1)}px)` : 'none';
+        f.style.filter = !celular.matches && o < 0.99 ? `blur(${((1 - o) * 10).toFixed(1)}px)` : 'none';
+        f.style.visibility = o < 0.01 ? 'hidden' : 'visible';
       });
       const fin = suave(faixa(p, 0.84, 0.96));
       final.style.opacity = fin; final.style.transform = `translateY(${(1 - fin) * 40}px)`; final.classList.toggle('visivel', fin > 0.5);
